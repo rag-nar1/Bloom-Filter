@@ -14,9 +14,9 @@ type BloomFilter struct {
 
 func NewBloomFilter(m, k int) *BloomFilter {
 	hashes := make([]*maphash.Hash, k)
-	for _, fn := range hashes {
-		fn = &maphash.Hash{}
-		fn.SetSeed(maphash.MakeSeed())
+	for i := range hashes {
+		hashes[i] = &maphash.Hash{}
+		hashes[i].SetSeed(maphash.MakeSeed())
 	}
 
 	return &BloomFilter{
@@ -27,25 +27,26 @@ func NewBloomFilter(m, k int) *BloomFilter {
 	}
 }
 
-func (bf *BloomFilter) Hash(data []byte) []int {
+func (bf *BloomFilter) hash(data []byte) []int {
 	hashedIdx := make([]int, bf.k)
 	for i, fn := range bf.hashes {
 		fn.Write(data)
 		hashedIdx[i] = int(fn.Sum64() % uint64(bf.m))
+		fn.Reset()
 	}
 
 	return hashedIdx
 }
 
 func (bf *BloomFilter) Insert(data []byte) {
-	hashedIdx := bf.Hash(data)
+	hashedIdx := bf.hash(data)
 	for _, idx := range hashedIdx {
 		bf.bits[idx] = true
 	}
 }
 
 func (bf *BloomFilter) Exist(data []byte) bool {
-	hashedIdx := bf.Hash(data)
+	hashedIdx := bf.hash(data)
 	for _, idx := range hashedIdx {
 		if !bf.bits[idx] {
 			return false
