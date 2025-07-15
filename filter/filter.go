@@ -1,4 +1,4 @@
-package BloomFilter
+package bloomfilters
 
 import (
 	"hash/maphash"

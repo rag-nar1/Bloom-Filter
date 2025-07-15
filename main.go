@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	BloomFilter "github.com/rag-nar1/Bloom-Filter/cmd"
+	BloomFilter "github.com/rag-nar1/Bloom-Filter/filter"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "0123456789"
