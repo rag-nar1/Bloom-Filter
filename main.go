@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	// "fmt"
 	"math/rand"
 	"time"
 
@@ -25,7 +25,7 @@ func main() {
 	k := 7
 	bf := BloomFilter.NewBloomFilter(m, k)
 	n := 1_000_000
-	startTime := time.Now()
+	// startTime := time.Now()
 	randData := make(map[string]bool, n)
 	ln := 0
 	for _ = range n {
@@ -51,9 +51,9 @@ func main() {
 		}
 	}
 
-	fmt.Println("string avg length: ", ln/n, "    filter Size:", m/8/1024/1024, "mb", "  number of hash functions:", k)
-	fmt.Println("Number of insert op: ", n)
-	fmt.Println("Number of lookups: ", 2*n,"\n")
-	fmt.Println("Time taken: " , time.Since(startTime).Seconds() , "sec")
-	fmt.Println("false positives: ", fp, "false negative: ", fn, "\nError: ", float32(fp)/float32(n)*100.0,"%")
+	// fmt.Println("string avg length: ", ln/n, "    filter Size:", m/8/1024/1024, "mb", "  number of hash functions:", k)
+	// fmt.Println("Number of insert op: ", n)
+	// fmt.Println("Number of lookups: ", 2*n,"\n")
+	// fmt.Println("Time taken: " , time.Since(startTime).Seconds() , "sec")
+	// fmt.Println("false positives: ", fp, "false negative: ", fn, "\nError: ", float32(fp)/float32(n)*100.0,"%")
 }
