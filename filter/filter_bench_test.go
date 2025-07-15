@@ -64,14 +64,11 @@ func BenchmarkAccuracy(b *testing.B) {
 	// Calculate metrics
 	falsePositiveRate := float64(falsePositives) / float64(len(testItems))
 
-	// Calculate theoretical false positive rate: (1 - e^(-k*n/m))^k
+	// Calculate theoretical false positive rate: p = pow(1 - exp(-k / (m / n)), k)
 	k := 5.0                      // hash functions
 	n := float64(len(knownItems)) // items inserted
 	m := 50000.0                  // filter size
-	theoreticalFPR := 1.0
-	for i := 0; i < 5; i++ {
-		theoreticalFPR *= (1.0 - (1.0 / (1.0 + (k*n)/m)))
-	}
+	theoreticalFPR := math.Pow(1.0-math.Exp(-k/(m/n)), k)
 
 	b.ResetTimer()
 	b.ReportAllocs()
