@@ -8,7 +8,7 @@ type BloomFilter struct {
 	m int // size of bit-array
 	k int // number of hash-functions
 
-	bits   []bool // the filter actual storage
+	bits   []int64 // the filter actual storage
 	hashes []*maphash.Hash
 }
 
@@ -22,7 +22,7 @@ func NewBloomFilter(m, k int) *BloomFilter {
 	return &BloomFilter{
 		m:      m,
 		k:      k,
-		bits:   make([]bool, m),
+		bits:   make([]int64, m/64+1),
 		hashes: hashes,
 	}
 }
@@ -41,14 +41,17 @@ func (bf *BloomFilter) hash(data []byte) []int {
 func (bf *BloomFilter) Insert(data []byte) {
 	hashedIdx := bf.hash(data)
 	for _, idx := range hashedIdx {
-		bf.bits[idx] = true
+		pos := idx / 64
+		bf.bits[pos] |= int64(1) << (idx % 64)
 	}
 }
 
 func (bf *BloomFilter) Exist(data []byte) bool {
 	hashedIdx := bf.hash(data)
 	for _, idx := range hashedIdx {
-		if !bf.bits[idx] {
+		pos := idx / 64
+		rem := idx % 64
+		if (bf.bits[pos] >> rem) & 1  == 0 {
 			return false
 		}
 	}
