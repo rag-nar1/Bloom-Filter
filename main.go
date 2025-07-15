@@ -21,10 +21,10 @@ func RandomString(length int, charset string) []byte {
 }
 
 func main() {
-	m := 10_000_000
-	k := 7
-	bf := BloomFilter.NewBloomFilter(m, k)
 	n := 1_000_000
+	fpRate := 0.01
+	bf := BloomFilter.NewBloomFilter(uint64(n), fpRate)
+	// n := 1_000_000
 	// startTime := time.Now()
 	randData := make(map[string]bool, n)
 	ln := 0

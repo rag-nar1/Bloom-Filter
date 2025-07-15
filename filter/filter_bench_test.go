@@ -2,7 +2,6 @@ package filter_test
 
 import (
 	"fmt"
-	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -12,7 +11,9 @@ import (
 
 // BenchmarkPerformance measures Insert and Exist operation performance
 func BenchmarkPerformance(b *testing.B) {
-	bf := filter.NewBloomFilter(100000, 5)
+	n := 100000
+	fpRate := 0.01
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 	testData := []byte("performance test data")
 
 	// Pre-insert the data for Exist testing
@@ -39,10 +40,12 @@ func BenchmarkPerformance(b *testing.B) {
 
 // BenchmarkAccuracy measures false positive rate and filter accuracy
 func BenchmarkAccuracy(b *testing.B) {
-	bf := filter.NewBloomFilter(50000, 5)
+	n := 50000
+	fpRate := 0.01
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 
 	// Insert known items (simulating real usage)
-	knownItems := make([][]byte, 5000)
+	knownItems := make([][]byte, n)
 	for i := range knownItems {
 		knownItems[i] = []byte(fmt.Sprintf("known_item_%d", i))
 		bf.Insert(knownItems[i])
@@ -61,15 +64,8 @@ func BenchmarkAccuracy(b *testing.B) {
 			falsePositives++
 		}
 	}
-
 	// Calculate metrics
 	falsePositiveRate := float64(falsePositives) / float64(len(testItems))
-
-	// Calculate theoretical false positive rate: p = pow(1 - exp(-k / (m / n)), k)
-	k := 5.0                      // hash functions
-	n := float64(len(knownItems)) // items inserted
-	m := 50000.0                  // filter size
-	theoreticalFPR := math.Pow(1.0-math.Exp(-k/(m/n)), k)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -81,7 +77,7 @@ func BenchmarkAccuracy(b *testing.B) {
 
 	// Report accuracy metrics
 	b.ReportMetric(falsePositiveRate*100, "actual_fpr_%")
-	b.ReportMetric(theoreticalFPR*100, "theoretical_fpr_%")
+	b.ReportMetric(fpRate*100, "theoretical_fpr_%")
 }
 
 // BenchmarkMemoryEfficiency measures memory usage and efficiency
@@ -92,12 +88,12 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
 
-	filterSize := 100000
-	bf := filter.NewBloomFilter(filterSize, 5)
+	n := 100000
+	fpRate := 0.01
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 
 	// Insert a significant number of items
-	itemCount := 10000
-	for i := 0; i < itemCount; i++ {
+	for i := 0; i < n; i++ {
 		bf.Insert([]byte(fmt.Sprintf("memory_test_item_%d", i)))
 	}
 
@@ -107,9 +103,9 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 
 	// Calculate memory metrics
 	actualMemoryBytes := m2.Alloc - m1.Alloc
-	theoreticalMemoryBytes := float64(filterSize) / 8 // bits to bytes
+	theoreticalMemoryBytes := float64(bf.M) / 8 // bits to bytes
 	memoryEfficiency := (theoreticalMemoryBytes / float64(actualMemoryBytes)) * 100
-	bitsPerItem := float64(filterSize) / float64(itemCount)
+	bitsPerItem := float64(bf.M) / float64(n)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -129,9 +125,8 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 // BenchmarkBigDataOperations tests performance with large data sets over multiple iterations and reports average metrics
 func BenchmarkBigDataOperations(b *testing.B) {
 	// Configuration
-	filterSize := 500000
-	hashFunctions := 7
-	bigDataCount := 25000
+	n := 500000
+	fpRate := 0.01
 	bigDataSize := 1024 // 1KB per item
 	nonExistentCount := 15000
 	iterations := 5 // Number of iterations to average
@@ -139,12 +134,6 @@ func BenchmarkBigDataOperations(b *testing.B) {
 	// Variables to accumulate metrics across iterations
 	totalFalsePositiveRate := 0.0
 	totalIterationTime := time.Duration(0)
-
-	// Calculate theoretical false positive rate (same for all iterations)
-	k := float64(hashFunctions)
-	n := float64(bigDataCount)
-	m := float64(filterSize)
-	theoreticalFPR := math.Pow(1.0-math.Exp(-k/(m/n)), k)
 
 	// Start total time tracking
 	totalStartTime := time.Now()
@@ -155,13 +144,13 @@ func BenchmarkBigDataOperations(b *testing.B) {
 		iterationStartTime := time.Now()
 
 		// Create a fresh bloom filter for each iteration
-		bf := filter.NewBloomFilter(filterSize, hashFunctions)
+		bf := filter.NewBloomFilter(uint64(n), fpRate)
 
 		// Generate big data items to insert
-		insertedItems := make([][]byte, bigDataCount)
+		insertedItems := make([][]byte, n)
 
 		// Create large data items with varied content
-		for i := 0; i < bigDataCount; i++ {
+		for i := 0; i < n; i++ {
 			data := make([]byte, bigDataSize)
 			// Fill with pattern to make each item unique (include iteration to ensure variety)
 			pattern := fmt.Sprintf("big_data_item_%d_%d_", iteration, i)
@@ -222,11 +211,11 @@ func BenchmarkBigDataOperations(b *testing.B) {
 	avgIterationTime := totalIterationTime / time.Duration(iterations)
 
 	// Create final bloom filter for benchmarking
-	bf := filter.NewBloomFilter(filterSize, hashFunctions)
-	finalItems := make([][]byte, bigDataCount+nonExistentCount)
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
+	finalItems := make([][]byte, n+nonExistentCount)
 
 	// Add both inserted and non-existent items for mixed testing
-	for i := 0; i < bigDataCount; i++ {
+	for i := 0; i < n; i++ {
 		data := make([]byte, bigDataSize)
 		pattern := fmt.Sprintf("final_big_data_item_%d_", i)
 		copy(data, []byte(pattern))
@@ -244,7 +233,7 @@ func BenchmarkBigDataOperations(b *testing.B) {
 		for j := len(pattern); j < bigDataSize; j++ {
 			data[j] = byte((i*2 + j + 128) % 256)
 		}
-		finalItems[bigDataCount+i] = data
+		finalItems[n+i] = data
 	}
 
 	b.ResetTimer()
@@ -256,12 +245,12 @@ func BenchmarkBigDataOperations(b *testing.B) {
 
 	// Report comprehensive averaged metrics
 	b.ReportMetric(avgFalsePositiveRate, "avg_actual_fpr_%")
-	b.ReportMetric(theoreticalFPR*100, "theoretical_fpr_%")
+	b.ReportMetric(fpRate*100, "theoretical_fpr_%")
 	b.ReportMetric(float64(iterations), "iterations#")
-	b.ReportMetric(float64(bigDataCount), "items_inserted_per_iteration")
+	b.ReportMetric(float64(n), "items_inserted_per_iteration")
 	b.ReportMetric(float64(nonExistentCount), "items_tested_non_existent_per_iteration")
 	b.ReportMetric(float64(bigDataSize), "avg_data_size_bytes")
-	b.ReportMetric(float64(filterSize)/8/1024, "filter_size_KB")
+	b.ReportMetric(float64(bf.M)/8/1024, "filter_size_KB")
 	b.ReportMetric(float64(avgIterationTime.Milliseconds()), "avg_iteration_time_ms")
 	b.ReportMetric(float64(totalTime.Milliseconds()), "total_time_ms")
 }

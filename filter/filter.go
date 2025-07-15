@@ -2,35 +2,41 @@ package filter
 
 import (
 	"hash/maphash"
+	"math"
 )
 
 type BloomFilter struct {
 	M int // size of bit-array
 	K int // number of hash-functions
 
-	Bits   []int64 // the filter actual storage
+	Bits   []uint64 // the filter actual storage
 	Hashes []*maphash.Hash
 }
 
-func NewBloomFilter(m, k int) *BloomFilter {
-	Hashes := make([]*maphash.Hash, k)
-	for i := range Hashes {
-		Hashes[i] = &maphash.Hash{}
-		Hashes[i].SetSeed(maphash.MakeSeed())
+func NewBloomFilter(n uint64, fpRate float64) *BloomFilter {
+	// m = ceil((n * log(p)) / log(1 / pow(2, log(2))));
+	// k = round((m / n) * log(2));
+	m := int(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
+	k := int(math.Round(float64(m) / float64(n) * math.Log(2)))
+	
+	hashes := make([]*maphash.Hash, k)
+	for i := range hashes {
+		hashes[i] = &maphash.Hash{}
+		hashes[i].SetSeed(maphash.MakeSeed())
 	}
 
 	return &BloomFilter{
 		M:      m,
 		K:      k,
-		Bits:   make([]int64, m/64+1),
-		Hashes: Hashes,
+		Bits:   make([]uint64, m/64+1),
+		Hashes: hashes,
 	}
 }
 
 func (bf *BloomFilter) Hash(data []byte) []int {
 	hashedIdx := make([]int, bf.K)
 	for i, fn := range bf.Hashes {
-		fn.Write(data)
+		_, _ = fn.Write(data)
 		hashedIdx[i] = int(fn.Sum64() % uint64(bf.M))
 		fn.Reset()
 	}
@@ -42,7 +48,7 @@ func (bf *BloomFilter) Insert(data []byte) {
 	hashedIdx := bf.Hash(data)
 	for _, idx := range hashedIdx {
 		pos := idx / 64
-		bf.Bits[pos] |= int64(1) << (idx % 64)
+		bf.Bits[pos] |= uint64(1) << (idx % 64)
 	}
 }
 

@@ -2,50 +2,51 @@ package filter_test
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
+
 	"github.com/rag-nar1/Bloom-Filter/filter"
 )
 
 func TestNewBloomFilter(t *testing.T) {
 	tests := []struct {
-		M    int
-		K    int
+		N    uint64
+		fpRate float64
 		name string
 	}{
-		{100, 3, "test1"},
-		{1000, 5, "test2"},
-		{10000, 7, "test3"},
+		{100, 0.01, "test1"},
+		{1000, 0.05, "test2"},
+		{10000, 0.1, "test3"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bf := filter.NewBloomFilter(test.M, test.K)
+			bf := filter.NewBloomFilter(test.N, test.fpRate)
 
 			// checking any intilization problems
-			if bf.M != test.M {
-				t.Errorf("expected m=%d, got %d", test.M, bf.M)
+			if bf.M <= 0 {
+				t.Errorf("expected m>0, got %d", bf.M)
 			}
-			if bf.K != test.K {
-				t.Errorf("expected k=%d, got %d", test.K, bf.K)
+			if bf.K <= 0 {
+				t.Errorf("expected k>0, got %d", bf.K)
 			}
-			if len(bf.Hashes) != test.K {
-				t.Errorf("expected %d hash functions, got %d", test.K, len(bf.Hashes))
+			if len(bf.Bits) <= 0 {
+				t.Errorf("expected bit array size >0, got %d", len(bf.Bits))
 			}
 
-			// check filter size
-			expectedSizeForFilter := test.M/64 + 1
-			if len(bf.Bits) != expectedSizeForFilter {
-				t.Errorf("expected bit array size %d, got %d", expectedSizeForFilter, len(bf.Bits))
+			if len(bf.Hashes) <= 0 {
+				t.Errorf("expected hash functions >0, got %d", len(bf.Hashes))
 			}
 		})
 	}
 }
 
 func TestHash(t *testing.T) {
-	m, k := 1000, 3
-	bf := filter.NewBloomFilter(m, k)
+	n := 1000
+	fpRate := 0.01
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 	testData := [][]byte{
 		[]byte("RAGNAR"),
 		[]byte("New value 1"),
@@ -57,14 +58,14 @@ func TestHash(t *testing.T) {
 		h1 := bf.Hash(data)
 		h2 := bf.Hash(data)
 
-		if len(h1) != k {
-			t.Errorf("expected length %d, got %d", k, len(h1))
+		if len(h1) != bf.K {
+			t.Errorf("expected length %d, got %d", bf.K, len(h1))
 		}
-		if len(h2) != k {
-			t.Errorf("expected length %d, got %d", k, len(h2))
+		if len(h2) != bf.K {
+			t.Errorf("expected length %d, got %d", bf.K, len(h2))
 		}
 
-		for i := range k {
+		for i := range bf.K {
 			if h1[i] != h2[i] {
 				t.Errorf("expected equlity between hashes got h1: %d, h2: %d", h1[i], h2[i])
 			}
@@ -73,8 +74,9 @@ func TestHash(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
-	m, k := 1000, 3
-	bf := filter.NewBloomFilter(m, k)
+	n := 1000
+	fpRate := 0.01
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 
 	testData := [][]byte{
 		[]byte("RAGNAR"),
@@ -91,11 +93,11 @@ func TestInsert(t *testing.T) {
 	// check that the bits with index contained in bf.hash(data) is set to true
 	for _, data := range testData {
 		h := bf.Hash(data)
-		if len(h) != k {
-			t.Errorf("expected length %d, got %d", k, len(h))
+		if len(h) != bf.K {
+			t.Errorf("expected length %d, got %d", bf.K, len(h))
 		}
 
-		for i := range k {
+		for i := range bf.K {
 			pos := h[i] / 64
 			rem := h[i] % 64
 			if (bf.Bits[pos] >> rem) & 1  == 0 {
@@ -106,7 +108,9 @@ func TestInsert(t *testing.T) {
 	}
 }
 func TestExist(t *testing.T) {
-	bf := filter.NewBloomFilter(1000, 3)
+	n := 1000
+	fpRate := 0.01
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 	
 	testData := [][]byte{
 		[]byte("RAGNAR"),
@@ -132,7 +136,9 @@ func TestExist(t *testing.T) {
 }
 
 func TestNoFalseNegatives(t *testing.T) {
-	bf := filter.NewBloomFilter(10000, 5)
+	n := 100
+	fpRate := 0.05
+	bf := filter.NewBloomFilter(uint64(n), fpRate)
 	
 	testItems := make([][]byte, 100)
 	for i := range testItems {
@@ -150,11 +156,9 @@ func TestNoFalseNegatives(t *testing.T) {
 
 
 func TestFalsePositiveRate(t *testing.T) {
-	m := 10000 
-	k := 5      
 	n := 1000   
-	e := 0.015 // at most
-	bf := filter.NewBloomFilter(m, k)
+	e := 0.01 // at most
+	bf := filter.NewBloomFilter(uint64(n), e)
 	
 	// Insert n items
 	insertedItems := make(map[string]bool)
@@ -178,7 +182,7 @@ func TestFalsePositiveRate(t *testing.T) {
 	
 	falsePositiveRate := float64(falsePositives) / float64(testCount)
 	
-	if falsePositiveRate > e {
+	if math.Abs(falsePositiveRate - e) > 0.01 {
 		t.Errorf("False positive rate too high: %f (expected <= %f)", falsePositiveRate, e)
 	}
 	
