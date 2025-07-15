@@ -6,7 +6,7 @@ import (
 )
 
 type BloomFilter struct {
-	M int // size of bit-array
+	M uint64 // size of bit-array
 	K int // number of hash-functions
 
 	Bits   []uint64 // the filter actual storage
@@ -16,9 +16,9 @@ type BloomFilter struct {
 func NewBloomFilter(n uint64, fpRate float64) *BloomFilter {
 	// m = ceil((n * log(p)) / log(1 / pow(2, log(2))));
 	// k = round((m / n) * log(2));
-	m := int(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
+	m := uint64(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
 	k := int(math.Round(float64(m) / float64(n) * math.Log(2)))
-	
+
 	hashes := make([]*maphash.Hash, k)
 	for i := range hashes {
 		hashes[i] = &maphash.Hash{}
@@ -37,7 +37,7 @@ func (bf *BloomFilter) Hash(data []byte) []int {
 	hashedIdx := make([]int, bf.K)
 	for i, fn := range bf.Hashes {
 		_, _ = fn.Write(data)
-		hashedIdx[i] = int(fn.Sum64() % uint64(bf.M))
+		hashedIdx[i] = int(fn.Sum64() % bf.M)
 		fn.Reset()
 	}
 
