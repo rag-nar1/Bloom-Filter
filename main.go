@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	BloomFilter "github.com/rag-nar1/Bloom-Filter/filter"
+	BloomFilter "github.com/rag-nar1/Bloom-Filter/filter/bloom"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "0123456789"
@@ -38,7 +38,7 @@ func main() {
 	fn, fp := 0, 0
 	for s, _ := range randData {
 		if !bf.Exist([]byte(s)) {
-			fn++
+			fn++	
 		}
 	}
 

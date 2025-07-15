@@ -1,4 +1,4 @@
-package filter_test
+package bloom_test
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rag-nar1/Bloom-Filter/filter"
+	filter "github.com/rag-nar1/Bloom-Filter/filter/bloom"
 )
 
 func TestNewBloomFilter(t *testing.T) {
