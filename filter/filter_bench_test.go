@@ -5,6 +5,7 @@ import (
 	"math"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/rag-nar1/Bloom-Filter/filter"
 )
@@ -125,89 +126,142 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 	b.ReportMetric(bitsPerItem, "bits_per_item")
 }
 
-// BenchmarkBigDataOperations tests performance with large data sets and reports comprehensive metrics
+// BenchmarkBigDataOperations tests performance with large data sets over multiple iterations and reports average metrics
 func BenchmarkBigDataOperations(b *testing.B) {
-	// Create a larger bloom filter for big data testing
+	// Configuration
 	filterSize := 500000
 	hashFunctions := 7
-	bf := filter.NewBloomFilter(filterSize, hashFunctions)
-
-	// Generate big data items to insert
 	bigDataCount := 25000
 	bigDataSize := 1024 // 1KB per item
-	insertedItems := make([][]byte, bigDataCount)
-
-	// Create large data items with varied content
-	for i := 0; i < bigDataCount; i++ {
-		data := make([]byte, bigDataSize)
-		// Fill with pattern to make each item unique
-		pattern := fmt.Sprintf("big_data_item_%d_", i)
-		copy(data, []byte(pattern))
-		// Fill rest with repeating pattern
-		for j := len(pattern); j < bigDataSize; j++ {
-			data[j] = byte((i + j) % 256)
-		}
-		insertedItems[i] = data
-		bf.Insert(data)
-	}
-
-	// Generate non-existent big data items for false positive testing
 	nonExistentCount := 15000
-	nonExistentItems := make([][]byte, nonExistentCount)
-	for i := 0; i < nonExistentCount; i++ {
-		data := make([]byte, bigDataSize)
-		pattern := fmt.Sprintf("non_existent_big_data_%d_", i)
-		copy(data, []byte(pattern))
-		// Fill rest with different pattern
-		for j := len(pattern); j < bigDataSize; j++ {
-			data[j] = byte((i*2 + j + 128) % 256)
-		}
-		nonExistentItems[i] = data
-	}
+	iterations := 5 // Number of iterations to average
 
-	// Test existence of inserted items (should all be true)
-	existentHits := 0
-	for _, item := range insertedItems {
-		if bf.Exist(item) {
-			existentHits++
-		}
-	}
+	// Variables to accumulate metrics across iterations
+	totalFalsePositiveRate := 0.0
+	totalIterationTime := time.Duration(0)
 
-	// Test existence of non-existent items (count false positives)
-	falsePositives := 0
-	for _, item := range nonExistentItems {
-		if bf.Exist(item) {
-			falsePositives++
-		}
-	}
-
-	// Calculate metrics
-	hitRate := float64(existentHits) / float64(len(insertedItems)) * 100
-	falsePositiveRate := float64(falsePositives) / float64(len(nonExistentItems)) * 100
-	totalDataSizeMB := float64(bigDataCount*bigDataSize) / (1024 * 1024)
-
-	// Calculate theoretical false positive rate
-	// p = pow(1 - exp(-k / (m / n)), k)
+	// Calculate theoretical false positive rate (same for all iterations)
 	k := float64(hashFunctions)
 	n := float64(bigDataCount)
 	m := float64(filterSize)
 	theoreticalFPR := math.Pow(1.0-math.Exp(-k/(m/n)), k)
 
+	// Start total time tracking
+	totalStartTime := time.Now()
+
+	// Run multiple iterations
+	for iteration := 0; iteration < iterations; iteration++ {
+		// Start iteration timer
+		iterationStartTime := time.Now()
+
+		// Create a fresh bloom filter for each iteration
+		bf := filter.NewBloomFilter(filterSize, hashFunctions)
+
+		// Generate big data items to insert
+		insertedItems := make([][]byte, bigDataCount)
+
+		// Create large data items with varied content
+		for i := 0; i < bigDataCount; i++ {
+			data := make([]byte, bigDataSize)
+			// Fill with pattern to make each item unique (include iteration to ensure variety)
+			pattern := fmt.Sprintf("big_data_item_%d_%d_", iteration, i)
+			copy(data, []byte(pattern))
+			// Fill rest with repeating pattern
+			for j := len(pattern); j < bigDataSize; j++ {
+				data[j] = byte((iteration + i + j) % 256)
+			}
+			insertedItems[i] = data
+			bf.Insert(data)
+		}
+
+		// Generate non-existent big data items for false positive testing
+		nonExistentItems := make([][]byte, nonExistentCount)
+		for i := 0; i < nonExistentCount; i++ {
+			data := make([]byte, bigDataSize)
+			pattern := fmt.Sprintf("non_existent_big_data_%d_%d_", iteration, i)
+			copy(data, []byte(pattern))
+			// Fill rest with different pattern
+			for j := len(pattern); j < bigDataSize; j++ {
+				data[j] = byte((iteration*3 + i*2 + j + 128) % 256)
+			}
+			nonExistentItems[i] = data
+		}
+
+		// Test existence of inserted items (should all be true)
+		existentHits := 0
+		for _, item := range insertedItems {
+			if bf.Exist(item) {
+				existentHits++
+			}
+		}
+
+		// Test existence of non-existent items (count false positives)
+		falsePositives := 0
+		for _, item := range nonExistentItems {
+			if bf.Exist(item) {
+				falsePositives++
+			}
+		}
+
+		// Calculate metrics for this iteration
+		falsePositiveRate := float64(falsePositives) / float64(len(nonExistentItems)) * 100
+
+		// Accumulate metrics
+		totalFalsePositiveRate += falsePositiveRate
+
+		// Record iteration time
+		iterationTime := time.Since(iterationStartTime)
+		totalIterationTime += iterationTime
+	}
+
+	// Calculate total time
+	totalTime := time.Since(totalStartTime)
+
+	// Calculate averages
+	avgFalsePositiveRate := totalFalsePositiveRate / float64(iterations)
+	avgIterationTime := totalIterationTime / time.Duration(iterations)
+
+	// Create final bloom filter for benchmarking
+	bf := filter.NewBloomFilter(filterSize, hashFunctions)
+	finalItems := make([][]byte, bigDataCount+nonExistentCount)
+
+	// Add both inserted and non-existent items for mixed testing
+	for i := 0; i < bigDataCount; i++ {
+		data := make([]byte, bigDataSize)
+		pattern := fmt.Sprintf("final_big_data_item_%d_", i)
+		copy(data, []byte(pattern))
+		for j := len(pattern); j < bigDataSize; j++ {
+			data[j] = byte((i + j) % 256)
+		}
+		finalItems[i] = data
+		bf.Insert(data)
+	}
+
+	for i := 0; i < nonExistentCount; i++ {
+		data := make([]byte, bigDataSize)
+		pattern := fmt.Sprintf("final_non_existent_%d_", i)
+		copy(data, []byte(pattern))
+		for j := len(pattern); j < bigDataSize; j++ {
+			data[j] = byte((i*2 + j + 128) % 256)
+		}
+		finalItems[bigDataCount+i] = data
+	}
+
 	b.ResetTimer()
 
 	// Benchmark mixed operations on big data
-	allItems := append(insertedItems, nonExistentItems...)
 	for i := 0; i < b.N; i++ {
-		bf.Exist(allItems[i%len(allItems)])
+		bf.Exist(finalItems[i%len(finalItems)])
 	}
 
-	// Report comprehensive metrics
-	b.ReportMetric(hitRate, "hit_rate_%")
-	b.ReportMetric(falsePositiveRate, "actual_fpr_%")
+	// Report comprehensive averaged metrics
+	b.ReportMetric(avgFalsePositiveRate, "avg_actual_fpr_%")
 	b.ReportMetric(theoreticalFPR*100, "theoretical_fpr_%")
-	b.ReportMetric(float64(bigDataCount), "items_inserted")
-	b.ReportMetric(float64(nonExistentCount), "items_tested_non_existent")
+	b.ReportMetric(float64(iterations), "iterations#")
+	b.ReportMetric(float64(bigDataCount), "items_inserted_per_iteration")
+	b.ReportMetric(float64(nonExistentCount), "items_tested_non_existent_per_iteration")
 	b.ReportMetric(float64(bigDataSize), "avg_data_size_bytes")
-	b.ReportMetric(totalDataSizeMB, "total_data_size_MB")
 	b.ReportMetric(float64(filterSize)/8/1024, "filter_size_KB")
+	b.ReportMetric(float64(avgIterationTime.Milliseconds()), "avg_iteration_time_ms")
+	b.ReportMetric(float64(totalTime.Milliseconds()), "total_time_ms")
 }
