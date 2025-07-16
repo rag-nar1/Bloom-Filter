@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/rag-nar1/Bloom-Filter/filter"
 	BloomFilter "github.com/rag-nar1/Bloom-Filter/filter/bloom"
 )
 
@@ -23,7 +24,7 @@ func RandomString(length int, charset string) []byte {
 func main() {
 	n := 1_000_000
 	fpRate := 0.01
-	bf := BloomFilter.NewBloomFilter(uint64(n), fpRate)
+	bf := BloomFilter.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
 	// n := 1_000_000
 	// startTime := time.Now()
 	randData := make(map[string]bool, n)

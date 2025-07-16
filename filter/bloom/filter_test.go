@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	filter "github.com/rag-nar1/Bloom-Filter/filter/bloom"
+	filter "github.com/rag-nar1/Bloom-Filter/filter"
+	filterBloom "github.com/rag-nar1/Bloom-Filter/filter/bloom"
 )
 
 func TestNewBloomFilter(t *testing.T) {
@@ -23,7 +24,7 @@ func TestNewBloomFilter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bf := filter.NewBloomFilter(test.N, test.fpRate)
+			bf := filterBloom.NewBloomFilter(test.N, test.fpRate, filter.DoubleHash)
 
 			// checking any intilization problems
 			if bf.M <= 0 {
@@ -36,8 +37,8 @@ func TestNewBloomFilter(t *testing.T) {
 				t.Errorf("expected bit array size >0, got %d", len(bf.Bits))
 			}
 
-			if len(bf.Hashes) <= 0 {
-				t.Errorf("expected hash functions >0, got %d", len(bf.Hashes))
+			if bf.Hasher == nil {
+				t.Errorf("expected hash function, got nil")
 			}
 		})
 	}
@@ -46,7 +47,7 @@ func TestNewBloomFilter(t *testing.T) {
 func TestHash(t *testing.T) {
 	n := 1000
 	fpRate := 0.01
-	bf := filter.NewBloomFilter(uint64(n), fpRate)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
 	testData := [][]byte{
 		[]byte("RAGNAR"),
 		[]byte("New value 1"),
@@ -76,7 +77,7 @@ func TestHash(t *testing.T) {
 func TestInsert(t *testing.T) {
 	n := 1000
 	fpRate := 0.01
-	bf := filter.NewBloomFilter(uint64(n), fpRate)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
 
 	testData := [][]byte{
 		[]byte("RAGNAR"),
@@ -110,7 +111,7 @@ func TestInsert(t *testing.T) {
 func TestExist(t *testing.T) {
 	n := 1000
 	fpRate := 0.01
-	bf := filter.NewBloomFilter(uint64(n), fpRate)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
 	
 	testData := [][]byte{
 		[]byte("RAGNAR"),
@@ -138,7 +139,7 @@ func TestExist(t *testing.T) {
 func TestNoFalseNegatives(t *testing.T) {
 	n := 100
 	fpRate := 0.05
-	bf := filter.NewBloomFilter(uint64(n), fpRate)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
 	
 	testItems := make([][]byte, 100)
 	for i := range testItems {
@@ -158,7 +159,7 @@ func TestNoFalseNegatives(t *testing.T) {
 func TestFalsePositiveRate(t *testing.T) {
 	n := 1000   
 	e := 0.01 // at most
-	bf := filter.NewBloomFilter(uint64(n), e)
+	bf := filterBloom.NewBloomFilter(uint64(n), e, filter.DoubleHash)
 	
 	// Insert n items
 	insertedItems := make(map[string]bool)

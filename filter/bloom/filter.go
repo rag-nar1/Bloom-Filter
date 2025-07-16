@@ -1,8 +1,9 @@
 package bloom
 
 import (
-	"hash/maphash"
 	"math"
+
+	"github.com/rag-nar1/Bloom-Filter/filter"
 )
 
 type BloomFilter struct {
@@ -10,38 +11,24 @@ type BloomFilter struct {
 	K int // number of hash-functions
 
 	Bits   []uint64 // the filter actual storage
-	Hashes []*maphash.Hash
+	Hasher filter.Hash
 }
 
-func NewBloomFilter(n uint64, fpRate float64) *BloomFilter {
+func NewBloomFilter(n uint64, fpRate float64, hasher filter.Hash) *BloomFilter {
 	// m = ceil((n * log(p)) / log(1 / pow(2, log(2))));
 	// k = round((m / n) * log(2));
 	m := uint64(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
 	k := int(math.Round(float64(m) / float64(n) * math.Log(2)))
-
-	hashes := make([]*maphash.Hash, k)
-	for i := range hashes {
-		hashes[i] = &maphash.Hash{}
-		hashes[i].SetSeed(maphash.MakeSeed())
-	}
-
 	return &BloomFilter{
 		M:      m,
 		K:      k,
 		Bits:   make([]uint64, m/64+1),
-		Hashes: hashes,
+		Hasher: hasher,
 	}
 }
 
 func (bf *BloomFilter) Hash(data []byte) []int {
-	hashedIdx := make([]int, bf.K)
-	for i, fn := range bf.Hashes {
-		_, _ = fn.Write(data)
-		hashedIdx[i] = int(fn.Sum64() % bf.M)
-		fn.Reset()
-	}
-
-	return hashedIdx
+	return bf.Hasher(data, bf.M, bf.K)
 }
 
 func (bf *BloomFilter) Insert(data []byte) {
