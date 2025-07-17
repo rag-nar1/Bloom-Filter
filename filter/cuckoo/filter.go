@@ -19,6 +19,7 @@ type CuckooFilter struct {
 	M       uint32 // number of buckets
 	Buckets [][]byte
 	Hasher  hash.Hash64
+	FPHasher hash.Hash64
 }
 
 func nextPowerOfTwo(n uint32) uint32 {
@@ -38,7 +39,8 @@ func NewCuckooFilter(n uint64, loadFactor float64) *CuckooFilter {
 	return &CuckooFilter{
 		M:       m,
 		Buckets: make([][]byte, m),
-		Hasher:  fnv.New64(),
+		Hasher:  fnv.New64a(),
+		FPHasher: fnv.New64a(),
 	}
 }
 
@@ -51,13 +53,16 @@ func (cf *CuckooFilter) Hash(data []byte) (uint32, byte) {
 	h1 := uint32(hash >> 32) % cf.M // most significant 32 bits
 	fingerprint := byte(hash%255 + 1) // least significant 8 bits
 
+	if h1&1 == 0 {
+		return cf.AlternateIndex(h1, fingerprint), fingerprint
+	}
 	return h1, fingerprint
 }
 
 func (cf *CuckooFilter) AlternateIndex(h1 uint32, fingerprint byte) uint32 {
-	cf.Hasher.Reset()
-	cf.Hasher.Write([]byte{fingerprint})
-	fphash := uint32(cf.Hasher.Sum64() >> 32) % cf.M
+	cf.FPHasher.Reset()
+	cf.FPHasher.Write([]byte{fingerprint})
+	fphash := uint32(cf.FPHasher.Sum64() >> 32) % cf.M
 
 	return (h1 ^ fphash)
 }
@@ -67,27 +72,26 @@ func (cf *CuckooFilter) InsertFingerprint(fingerprint byte, h uint32, kickingIdx
 		return false
 	}
 
-	idx := h % cf.M
-	if len(cf.Buckets[idx]) < BucketSize {
-		cf.Buckets[idx] = append(cf.Buckets[idx], fingerprint)
+	if len(cf.Buckets[h]) < BucketSize {
+		cf.Buckets[h] = append(cf.Buckets[h], fingerprint)
 		return true
 	}
 
-	kickedFingerprint := cf.Buckets[idx][0]
-	cf.Buckets[idx][0] = fingerprint
+	kickedFingerprint := cf.Buckets[h][0]
+	cf.Buckets[h][0] = fingerprint
 
 	return cf.InsertFingerprint(kickedFingerprint, cf.AlternateIndex(h, kickedFingerprint), kickingIdx+1)
 }
 
 func (cf *CuckooFilter) Insert(data []byte) bool {
 	h1, fingerprint := cf.Hash(data)
-	if len(cf.Buckets[h1%cf.M]) < BucketSize {
-		cf.Buckets[h1%cf.M] = append(cf.Buckets[h1%cf.M], fingerprint)
+	if len(cf.Buckets[h1]) < BucketSize {
+		cf.Buckets[h1] = append(cf.Buckets[h1], fingerprint)
 		return true
 	}
 	h2 := cf.AlternateIndex(h1, fingerprint)
-	if len(cf.Buckets[h2%cf.M]) < BucketSize {
-		cf.Buckets[h2%cf.M] = append(cf.Buckets[h2%cf.M], fingerprint)
+	if len(cf.Buckets[h2]) < BucketSize {
+		cf.Buckets[h2] = append(cf.Buckets[h2], fingerprint)
 		return true
 	}
 	return cf.InsertFingerprint(fingerprint, h1, 0)
@@ -95,16 +99,14 @@ func (cf *CuckooFilter) Insert(data []byte) bool {
 
 func (cf *CuckooFilter) Lookup(data []byte) bool {
 	h1, fingerprint := cf.Hash(data)
-	idx := h1 % cf.M
-	for _, val := range cf.Buckets[idx] {
+	for _, val := range cf.Buckets[h1] {
 		if val == fingerprint {
 			return true
 		}
 	}
 
 	h2 := cf.AlternateIndex(h1, fingerprint)
-	idx = h2 % cf.M
-	for _, val := range cf.Buckets[idx] {
+	for _, val := range cf.Buckets[h2] {
 		if val == fingerprint {
 			return true
 		}
@@ -115,19 +117,17 @@ func (cf *CuckooFilter) Lookup(data []byte) bool {
 
 func (cf *CuckooFilter) Delete(data []byte) bool {
 	h1, fingerprint := cf.Hash(data)
-	idx := h1 % cf.M
-	for i, val := range cf.Buckets[idx] {
+	for i, val := range cf.Buckets[h1] {
 		if val == fingerprint {
-			cf.Buckets[idx] = slices.Delete(cf.Buckets[idx], i, i+1)
+			cf.Buckets[h1] = slices.Delete(cf.Buckets[h1], i, i+1)
 			return true
 		}
 	}
 
 	h2 := cf.AlternateIndex(h1, fingerprint)
-	idx = h2 % cf.M
-	for i, val := range cf.Buckets[idx] {
+	for i, val := range cf.Buckets[h2] {
 		if val == fingerprint {
-			cf.Buckets[idx] = slices.Delete(cf.Buckets[idx], i, i+1)
+			cf.Buckets[h2] = slices.Delete(cf.Buckets[h2], i, i+1)
 			return true
 		}
 	}
