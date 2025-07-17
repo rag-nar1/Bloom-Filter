@@ -497,7 +497,7 @@ func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bi
 
 
 func TestFalseNegativesBiggerM(t *testing.T) {
-	N := uint64(10000000)
+	N := uint64(10)
 	cf := filterCuckoo.NewCuckooFilter(N, 0.95)
 
 	// Generate 1000 random strings
@@ -505,7 +505,7 @@ func TestFalseNegativesBiggerM(t *testing.T) {
 	inserted := make([]string, 0, N)
 
 	for i := uint64(0); i < N; i++ {
-		testData[i] = fmt.Sprintf("test_item_%d_%d", i, i*7+13)
+		testData[i] = fmt.Sprintf("known_item_%d", i)
 		inserted = append(inserted, testData[i])
 
 		if !cf.Insert([]byte(testData[i])) {

@@ -1,11 +1,11 @@
 package cuckoo
 
 import (
-	"hash"
-	"hash/fnv"
 	"math"
 	"math/rand"
 	"slices"
+
+	"github.com/dgryski/go-metro"
 )
 
 // fingerprint is considered as a single byte(8 bits)
@@ -19,8 +19,8 @@ const (
 type CuckooFilter struct {
 	M       uint32 // number of buckets
 	Buckets [][]byte
-	Hasher  hash.Hash64
-	FPHasher hash.Hash64
+	Seed    uint64
+	FpSeed  uint64
 	Stash    []byte
 }
 
@@ -41,17 +41,15 @@ func NewCuckooFilter(n uint64, loadFactor float64) *CuckooFilter {
 	return &CuckooFilter{
 		M:       m,
 		Buckets: make([][]byte, m),
-		Hasher:  fnv.New64a(),
-		FPHasher: fnv.New64a(),
+		Seed:    rand.Uint64(),
+		FpSeed:  rand.Uint64(),
 		Stash: make([]byte, 0),
 	}
 }
 
 // returns the fingerprint and the index of the first bucket
 func (cf *CuckooFilter) Hash(data []byte) (uint32, byte) {
-	cf.Hasher.Reset()
-	cf.Hasher.Write(data)
-	hash := cf.Hasher.Sum64()
+	hash := metro.Hash64(data, cf.Seed)
 
 	h1 := uint32(hash >> 32) % cf.M // most significant 32 bits
 	fingerprint := byte(hash) // least significant 8 bits
@@ -63,9 +61,7 @@ func (cf *CuckooFilter) Hash(data []byte) (uint32, byte) {
 }
 
 func (cf *CuckooFilter) AlternateIndex(h1 uint32, fingerprint byte) uint32 {
-	cf.FPHasher.Reset()
-	cf.FPHasher.Write([]byte{fingerprint})
-	fphash := uint32(cf.FPHasher.Sum64() >> 32) % cf.M
+	fphash := uint32(metro.Hash64([]byte{fingerprint}, cf.FpSeed) >> 32) % cf.M
 
 	return (h1 ^ fphash)
 }
