@@ -469,10 +469,9 @@ func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bi
 
 	for i := 0; i < 1000; i++ {
 		testData[i] = fmt.Sprintf("test_item_%d_%d", i, i*7+13)
+		inserted = append(inserted, testData[i])
 
-		if cf.Insert([]byte(testData[i])) {
-			inserted = append(inserted, testData[i])
-		} else {
+		if !cf.Insert([]byte(testData[i])) {
 			t.Logf("Failed to insert item %d", i)
 		}
 	}
@@ -493,6 +492,7 @@ func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bi
 	} else {
 		t.Logf("No false negatives found - all %d inserted items were successfully looked up", len(inserted))
 	}
+	t.Logf("Stash size: %d", len(cf.Stash))
 }
 
 
@@ -508,8 +508,7 @@ func TestFalseNegativesBiggerM(t *testing.T) {
 		testData[i] = fmt.Sprintf("test_item_%d_%d", i, i*7+13)
 		inserted = append(inserted, testData[i])
 
-		if cf.Insert([]byte(testData[i])) {
-		} else {
+		if !cf.Insert([]byte(testData[i])) {
 			t.Logf("Reached max kicks for item %d", i)
 		}
 	}

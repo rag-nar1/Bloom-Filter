@@ -4,6 +4,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"math"
+	"math/rand"
 	"slices"
 )
 
@@ -11,7 +12,7 @@ import (
 // number of entries per bucket is 4
 const (
 	FpSize     = 8
-	BucketSize = 5
+	BucketSize = 4
 	MaxKicks   = 500
 )
 
@@ -80,9 +81,10 @@ func (cf *CuckooFilter) InsertFingerprint(fingerprint byte, h uint32, kickingIdx
 		return true
 	}
 
-	// TODO: kick a random bucket
-	kickedFingerprint := cf.Buckets[h][0]
-	cf.Buckets[h][0] = fingerprint
+	// kick a random bucket to avoid going through the same graph cycle
+	randomIndex := rand.Intn(BucketSize)
+	kickedFingerprint := cf.Buckets[h][randomIndex]
+	cf.Buckets[h][randomIndex] = fingerprint
 
 	return cf.InsertFingerprint(kickedFingerprint, cf.AlternateIndex(h, kickedFingerprint), kickingIdx+1)
 }
@@ -125,6 +127,12 @@ func (cf *CuckooFilter) Lookup(data []byte) bool {
 
 func (cf *CuckooFilter) Delete(data []byte) bool {
 	h1, fingerprint := cf.Hash(data)
+	if slices.Contains(cf.Stash, fingerprint) {
+		idx := slices.Index(cf.Stash, fingerprint)
+		cf.Stash = slices.Delete(cf.Stash, idx, idx+1)
+		return true
+	}
+
 	for i, val := range cf.Buckets[h1] {
 		if val == fingerprint {
 			cf.Buckets[h1] = slices.Delete(cf.Buckets[h1], i, i+1)
