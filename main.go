@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/rag-nar1/Bloom-Filter/filter"
-	BloomFilter "github.com/rag-nar1/Bloom-Filter/filter/bloom"
+	"github.com/rag-nar1/Filters/filter"
+	BloomFilter "github.com/rag-nar1/Filters/filter/bloom"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "0123456789"

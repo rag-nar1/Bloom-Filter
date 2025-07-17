@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	filter "github.com/rag-nar1/Bloom-Filter/filter"
-	filterBloom "github.com/rag-nar1/Bloom-Filter/filter/bloom"
+	filter "github.com/rag-nar1/Filters/filter"
+	filterBloom "github.com/rag-nar1/Filters/filter/bloom"
 )
 
 // BenchmarkPerformance measures Insert and Exist operation performance

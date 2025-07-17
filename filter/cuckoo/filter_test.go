@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	filterCuckoo "github.com/rag-nar1/Bloom-Filter/filter/cuckoo"
+	filterCuckoo "github.com/rag-nar1/Filters/filter/cuckoo"
 )
 
 func TestNewCuckooFilter(t *testing.T) {
@@ -33,7 +33,7 @@ func TestNewCuckooFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cf := filterCuckoo.NewCuckooFilter(tt.n, tt.fpRate, tt.loadFactor)
+			cf := filterCuckoo.NewCuckooFilter(tt.n, tt.loadFactor)
 
 			if cf.M != tt.expectedM {
 				t.Errorf("expected M=%d, got M=%d", tt.expectedM, cf.M)
@@ -54,7 +54,7 @@ func TestNewCuckooFilter(t *testing.T) {
 }
 
 func TestHash(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(1000, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(1000, 0.95)
 
 	tests := []struct {
 		name string
@@ -86,7 +86,7 @@ func TestHash(t *testing.T) {
 }
 
 func TestAlternateIndex(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(1000, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(1000, 0.95)
 
 	tests := []struct {
 		name        string
@@ -114,7 +114,7 @@ func TestAlternateIndex(t *testing.T) {
 }
 
 func TestInsertAndLookup(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(1000, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(1000, 0.95)
 
 	testData := [][]byte{
 		[]byte("apple"),
@@ -158,7 +158,7 @@ func TestInsertAndLookup(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(1000, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(1000, 0.95)
 
 	testData := [][]byte{
 		[]byte("apple"),
@@ -208,7 +208,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestInsertDuplicates(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(100, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(100, 0.95)
 
 	data := []byte("duplicate")
 
@@ -237,7 +237,7 @@ func TestInsertDuplicates(t *testing.T) {
 
 func TestCapacityLimits(t *testing.T) {
 	// Create a very small filter to test capacity limits
-	cf := filterCuckoo.NewCuckooFilter(10, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(10, 0.95)
 
 	insertedCount := 0
 	maxAttempts := 1000
@@ -267,7 +267,7 @@ func TestCapacityLimits(t *testing.T) {
 }
 
 func TestBucketBoundaries(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(100, 0.01, 0.95)
+	cf := filterCuckoo.NewCuckooFilter(100, 0.95)
 
 	// Test with data that might map to edge buckets
 	edgeData := [][]byte{
@@ -302,7 +302,6 @@ func TestErrorRates(t *testing.T) {
 	tests := []struct {
 		name           string
 		n              uint64
-		fpRate         float64
 		loadFactor     float64
 		insertCount    int
 		testCount      int
@@ -311,8 +310,7 @@ func TestErrorRates(t *testing.T) {
 		{
 			name:           "small filter error rates",
 			n:              1000,
-			fpRate:         0.01,
-			loadFactor:     0.8,
+			loadFactor:     0.95,
 			insertCount:    500,   // insert 500 items
 			testCount:      10000, // test 10000 random items for false positives
 			maxExpectedFPR: 0.05,  // expect < 5% false positive rate
@@ -320,8 +318,7 @@ func TestErrorRates(t *testing.T) {
 		{
 			name:           "large filter error rates",
 			n:              10000,
-			fpRate:         0.001,
-			loadFactor:     0.7,
+			loadFactor:     0.95,
 			insertCount:    5000,
 			testCount:      50000,
 			maxExpectedFPR: 0.04, // expect < 4% false positive rate
@@ -330,7 +327,7 @@ func TestErrorRates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cf := filterCuckoo.NewCuckooFilter(tt.n, tt.fpRate, tt.loadFactor)
+			cf := filterCuckoo.NewCuckooFilter(tt.n, tt.loadFactor)
 
 			// Generate test data for insertion
 			insertedItems := make([][]byte, 0, tt.insertCount)
@@ -340,7 +337,7 @@ func TestErrorRates(t *testing.T) {
 			successfulInserts := 0
 			for i := 0; i < tt.insertCount; i++ {
 				// Create unique test data
-				data := []byte("test_item_" + string(rune(i)) + "_" + string(rune(i*2)))
+				data := []byte(fmt.Sprintf("test_item_%d_%d", i, i*2))
 
 				if cf.Insert(data) {
 					insertedItems = append(insertedItems, data)
@@ -399,29 +396,12 @@ func TestErrorRates(t *testing.T) {
 				t.Errorf("False positive rate %.4f%% exceeds maximum expected rate %.4f%%",
 					falsePositiveRate*100, tt.maxExpectedFPR*100)
 			}
-
-			// Theoretical FPR for Cuckoo filter is approximately 2*b/2^f
-			// where b=bucket_size=4, f=fingerprint_bits=8
-			// So theoretical ≈ 2*4/256 ≈ 3.125%
-			const bucketSize = 4
-			const fpSize = 8
-			theoreticalFPR := (2.0 * bucketSize) / (1 << fpSize) // 2*4/256
-			t.Logf("Theoretical FPR: %.4f%%, Actual FPR: %.4f%%",
-				theoreticalFPR*100, falsePositiveRate*100)
-
-			// Log load factor achieved
-			totalEntries := 0
-			for _, bucket := range cf.Buckets {
-				totalEntries += len(bucket)
-			}
-			actualLoadFactor := float64(totalEntries) / float64(cf.M*bucketSize)
-			t.Logf("Actual load factor: %.4f (target was %.4f)", actualLoadFactor, tt.loadFactor)
 		})
 	}
 }
 
 func TestErrorRatesWithDuplicates(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(1000, 0.01, 0.8)
+	cf := filterCuckoo.NewCuckooFilter(1000, 0.8)
 
 	// Insert same item multiple times
 	testItem := []byte("duplicate_test_item")
@@ -450,7 +430,7 @@ func TestErrorRatesWithDuplicates(t *testing.T) {
 }
 
 func TestErrorRatesEdgeCases(t *testing.T) {
-	cf := filterCuckoo.NewCuckooFilter(100, 0.01, 0.9)
+	cf := filterCuckoo.NewCuckooFilter(100, 0.9)
 
 	// Test with empty data
 	emptyData := []byte{}
@@ -481,14 +461,14 @@ func TestErrorRatesEdgeCases(t *testing.T) {
 }
 
 func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bigger because of insertions failure
-	cf := filterCuckoo.NewCuckooFilter(3000, 0.01, 0.8)
+	cf := filterCuckoo.NewCuckooFilter(1000, 0.95)
 
 	// Generate 1000 random strings
-	testData := make([]string, 2000)
-	inserted := make([]string, 0, 2000)
+	testData := make([]string, 1000)
+	inserted := make([]string, 0, 1000)
 
-	for i := 0; i < 2000; i++ {
-		testData[i] = fmt.Sprintf("random_string_%d_%d", i, i*7+13)
+	for i := 0; i < 1000; i++ {
+		testData[i] = fmt.Sprintf("test_item_%d_%d", i, i*7+13)
 
 		if cf.Insert([]byte(testData[i])) {
 			inserted = append(inserted, testData[i])

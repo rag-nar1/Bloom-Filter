@@ -3,7 +3,7 @@ package bloom
 import (
 	"math"
 
-	"github.com/rag-nar1/Bloom-Filter/filter"
+	"github.com/rag-nar1/Filters/filter"
 )
 
 type BloomFilter struct {

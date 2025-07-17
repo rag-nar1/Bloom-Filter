@@ -28,13 +28,12 @@ func nextPowerOfTwo(n uint32) uint32 {
 	n |= n >> 4
 	n |= n >> 8
 	n |= n >> 16
-	n |= n >> 32
 	n++
 	return n
 }
 
-func NewCuckooFilter(n uint64, fpRate float64, loadFactor float64) *CuckooFilter {
-	m := nextPowerOfTwo(uint32(math.Ceil(float64(n) / loadFactor / BucketSize)))
+func NewCuckooFilter(n uint64, loadFactor float64) *CuckooFilter {
+	m := nextPowerOfTwo(uint32(math.Ceil(float64(n) / float64(BucketSize) / loadFactor)))
 
 	return &CuckooFilter{
 		M:       m,
