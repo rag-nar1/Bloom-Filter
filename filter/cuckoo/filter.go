@@ -5,7 +5,6 @@ import (
 	"hash/fnv"
 	"math"
 	"slices"
-	"log"
 )
 
 // fingerprint is considered as a single byte(8 bits)
@@ -37,7 +36,7 @@ func nextPowerOfTwo(n uint32) uint32 {
 
 func NewCuckooFilter(n uint64, loadFactor float64) *CuckooFilter {
 	m := nextPowerOfTwo(uint32(math.Ceil(float64(n) / float64(BucketSize) / loadFactor)))
-	log.Println("m", m)
+
 	return &CuckooFilter{
 		M:       m,
 		Buckets: make([][]byte, m),
