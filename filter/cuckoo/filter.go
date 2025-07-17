@@ -5,13 +5,14 @@ import (
 	"hash/fnv"
 	"math"
 	"slices"
+	"log"
 )
 
 // fingerprint is considered as a single byte(8 bits)
 // number of entries per bucket is 4
 const (
 	FpSize     = 8
-	BucketSize = 4
+	BucketSize = 5
 	MaxKicks   = 500
 )
 
@@ -20,6 +21,7 @@ type CuckooFilter struct {
 	Buckets [][]byte
 	Hasher  hash.Hash64
 	FPHasher hash.Hash64
+	Stash    []byte
 }
 
 func nextPowerOfTwo(n uint32) uint32 {
@@ -35,12 +37,13 @@ func nextPowerOfTwo(n uint32) uint32 {
 
 func NewCuckooFilter(n uint64, loadFactor float64) *CuckooFilter {
 	m := nextPowerOfTwo(uint32(math.Ceil(float64(n) / float64(BucketSize) / loadFactor)))
-
+	log.Println("m", m)
 	return &CuckooFilter{
 		M:       m,
 		Buckets: make([][]byte, m),
 		Hasher:  fnv.New64a(),
 		FPHasher: fnv.New64a(),
+		Stash: make([]byte, 0),
 	}
 }
 
@@ -51,11 +54,11 @@ func (cf *CuckooFilter) Hash(data []byte) (uint32, byte) {
 	hash := cf.Hasher.Sum64()
 
 	h1 := uint32(hash >> 32) % cf.M // most significant 32 bits
-	fingerprint := byte(hash%255 + 1) // least significant 8 bits
+	fingerprint := byte(hash) // least significant 8 bits
 
-	if h1&1 == 0 {
-		return cf.AlternateIndex(h1, fingerprint), fingerprint
-	}
+	// if h1&1 == 0 {
+	// 	return cf.AlternateIndex(h1, fingerprint), fingerprint
+	// }
 	return h1, fingerprint
 }
 
@@ -69,6 +72,7 @@ func (cf *CuckooFilter) AlternateIndex(h1 uint32, fingerprint byte) uint32 {
 
 func (cf *CuckooFilter) InsertFingerprint(fingerprint byte, h uint32, kickingIdx uint32) bool {
 	if kickingIdx > MaxKicks {
+		cf.Stash = append(cf.Stash, fingerprint)
 		return false
 	}
 
@@ -77,6 +81,7 @@ func (cf *CuckooFilter) InsertFingerprint(fingerprint byte, h uint32, kickingIdx
 		return true
 	}
 
+	// TODO: kick a random bucket
 	kickedFingerprint := cf.Buckets[h][0]
 	cf.Buckets[h][0] = fingerprint
 
@@ -99,6 +104,10 @@ func (cf *CuckooFilter) Insert(data []byte) bool {
 
 func (cf *CuckooFilter) Lookup(data []byte) bool {
 	h1, fingerprint := cf.Hash(data)
+	if slices.Contains(cf.Stash, fingerprint) {
+		return true
+	}
+
 	for _, val := range cf.Buckets[h1] {
 		if val == fingerprint {
 			return true

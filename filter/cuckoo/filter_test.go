@@ -494,3 +494,41 @@ func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bi
 		t.Logf("No false negatives found - all %d inserted items were successfully looked up", len(inserted))
 	}
 }
+
+
+func TestFalseNegativesBiggerM(t *testing.T) {
+	N := uint64(10000000)
+	cf := filterCuckoo.NewCuckooFilter(N, 0.95)
+
+	// Generate 1000 random strings
+	testData := make([]string, N)
+	inserted := make([]string, 0, N)
+
+	for i := uint64(0); i < N; i++ {
+		testData[i] = fmt.Sprintf("test_item_%d_%d", i, i*7+13)
+		inserted = append(inserted, testData[i])
+
+		if cf.Insert([]byte(testData[i])) {
+		} else {
+			t.Logf("Reached max kicks for item %d", i)
+		}
+	}
+
+	t.Logf("Successfully inserted %d out of %d items", len(inserted), len(testData))
+
+	// Check for false negatives - all inserted items should be found
+	falseNegatives := 0
+	for _, item := range inserted {
+		if !cf.Lookup([]byte(item)) {
+			falseNegatives++
+			t.Errorf("FALSE NEGATIVE: item '%s' was inserted but not found", item)
+		}
+	}
+
+	if falseNegatives > 0 {
+		t.Errorf("Found %d false negatives out of %d inserted items", falseNegatives, len(inserted))
+	} else {
+		t.Logf("No false negatives found - all %d inserted items were successfully looked up", len(inserted))
+	}
+	t.Logf("Stash size: %d", len(cf.Stash))
+}
