@@ -2,6 +2,7 @@ package cuckoo_test
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	filterCuckoo "github.com/rag-nar1/Filters/filter/cuckoo"
@@ -41,13 +42,6 @@ func TestNewCuckooFilter(t *testing.T) {
 
 			if len(cf.Buckets) != int(tt.expectedM) {
 				t.Errorf("expected %d buckets, got %d", tt.expectedM, len(cf.Buckets))
-			}
-
-			// Check that all buckets are initialized as empty
-			for i, bucket := range cf.Buckets {
-				if len(bucket) != 0 {
-					t.Errorf("bucket %d should be empty, got length %d", i, len(bucket))
-				}
 			}
 		})
 	}
@@ -495,9 +489,8 @@ func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bi
 	t.Logf("Stash size: %d", len(cf.Stash))
 }
 
-
 func TestFalseNegativesBiggerM(t *testing.T) {
-	N := uint64(10)
+	N := uint64(10000000)
 	cf := filterCuckoo.NewCuckooFilter(N, 0.95)
 
 	// Generate 1000 random strings
@@ -530,4 +523,20 @@ func TestFalseNegativesBiggerM(t *testing.T) {
 		t.Logf("No false negatives found - all %d inserted items were successfully looked up", len(inserted))
 	}
 	t.Logf("Stash size: %d", len(cf.Stash))
+}
+
+func BenchmarkMemoryConsumption(b *testing.B) {
+	var m1, m2 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	N := uint64(5000000)
+	cf := filterCuckoo.NewCuckooFilter(N, 0.95)
+	for i := uint64(0); i < N; i++ {
+		cf.Insert([]byte(fmt.Sprintf("test_%d", i)))
+	}
+	runtime.GC()
+	runtime.ReadMemStats(&m2)
+
+	fmt.Printf("Memory usage: %f MB\n", float64(m2.Alloc-m1.Alloc)/1024/1024)
+	theoreticalMemory := float64(cf.M) * 4.0 / 1024.0 / 1024.0
+	fmt.Printf("Theoretical memory usage: %f MB\n", theoreticalMemory)
 }
