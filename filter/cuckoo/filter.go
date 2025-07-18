@@ -6,6 +6,7 @@ import (
 	"math/rand"
 
 	"github.com/dgryski/go-metro"
+	"github.com/rag-nar1/Filters/filter"
 )
 
 // fingerprint is considered as a single byte(8 bits)
@@ -156,9 +157,9 @@ func RandomChoise[T any](a T, b T) T {
 func (cf *CuckooFilter) Serialize() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, 12+cf.M*BucketSize))
 
-	serializeUint(buf, uint64(cf.M), 4)
-	serializeUint(buf, cf.FpSeed, 8)
-	serializeUint(buf, cf.Seed, 8)
+	filter.SerializeUint(buf, uint64(cf.M), 4)
+	filter.SerializeUint(buf, cf.FpSeed, 8)
+	filter.SerializeUint(buf, cf.Seed, 8)
 
 	for _, bucket := range cf.Buckets {
 		buf.Write(bucket[:])
@@ -170,9 +171,9 @@ func (cf *CuckooFilter) Serialize() []byte {
 func Deserialize(data []byte) *CuckooFilter {
 	buf := bytes.NewBuffer(data)
 
-	m := deserializeUint[uint32](buf, 4)
-	fpSeed := deserializeUint[uint64](buf, 8)
-	seed := deserializeUint[uint64](buf, 8)
+	m := filter.DeserializeUint[uint32](buf, 4)
+	fpSeed := filter.DeserializeUint[uint64](buf, 8)
+	seed := filter.DeserializeUint[uint64](buf, 8)
 
 	cf := &CuckooFilter{
 		M:       m,
@@ -186,22 +187,4 @@ func Deserialize(data []byte) *CuckooFilter {
 	}
 
 	return cf
-}
-
-func serializeUint(buf *bytes.Buffer, value uint64, size int) {
-	byteData := make([]byte, size)
-	for i := range size {
-		byteData[i] = byte(value >> (i * 8))
-	}
-	buf.Write(byteData)
-}
-
-func deserializeUint[T uint64 | uint32](buf *bytes.Buffer, size int) T {
-	byteData := make([]byte, size)
-	buf.Read(byteData)
-	value := uint64(0)
-	for i := range size {
-		value |= uint64(byteData[i]) << (i * 8)
-	}
-	return T(value)
 }

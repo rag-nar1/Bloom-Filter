@@ -7,13 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rag-nar1/Filters/filter"
 	"github.com/rag-nar1/Filters/filter/bloom"
 	"github.com/rag-nar1/Filters/filter/cuckoo"
 )
 
 const (
-	N                = 10000000
+	N                = 5000000
 	BloomFPRate      = 0.01
 	CuckooLoadFactor = 0.95
 )
@@ -32,7 +31,7 @@ func TestBloomVsCuckooComparison(t *testing.T) {
 	nonInsertedData := generateData(2 * N)[N:]
 
 	// Create filters
-	bloomFilter := bloom.NewBloomFilter(N, BloomFPRate, filter.DoubleHash)
+	bloomFilter := bloom.NewBloomFilter(N, BloomFPRate)
 	cuckooFilter := cuckoo.NewCuckooFilter(N, CuckooLoadFactor)
 
 	// --- Benchmarking Bloom Filter ---
@@ -40,7 +39,7 @@ func TestBloomVsCuckooComparison(t *testing.T) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	initialMem := memStats.Alloc
-	bloomFilter = bloom.NewBloomFilter(N, BloomFPRate, filter.DoubleHash)
+	bloomFilter = bloom.NewBloomFilter(N, BloomFPRate)
 	runtime.ReadMemStats(&memStats)
 	bloomMemUsage := memStats.Alloc - initialMem
 

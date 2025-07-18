@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	filter "github.com/rag-nar1/Filters/filter"
 	filterBloom "github.com/rag-nar1/Filters/filter/bloom"
 )
 
@@ -14,7 +13,7 @@ import (
 func BenchmarkPerformance(b *testing.B) {
 	n := 100000
 	fpRate := 0.01
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 	testData := []byte("performance test data")
 
 	// Pre-insert the data for Exist testing
@@ -43,7 +42,7 @@ func BenchmarkPerformance(b *testing.B) {
 func BenchmarkAccuracy(b *testing.B) {
 	n := 50000
 	fpRate := 0.01
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 
 	// Insert known items (simulating real usage)
 	knownItems := make([][]byte, n)
@@ -91,7 +90,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 
 	n := 100000
 	fpRate := 0.01
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 
 	// Insert a significant number of items
 	for i := 0; i < n; i++ {
@@ -145,7 +144,7 @@ func BenchmarkBigDataOperations(b *testing.B) {
 		iterationStartTime := time.Now()
 
 		// Create a fresh bloom filter for each iteration
-		bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+		bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 
 		// Generate big data items to insert
 		insertedItems := make([][]byte, n)
@@ -212,7 +211,7 @@ func BenchmarkBigDataOperations(b *testing.B) {
 	avgIterationTime := totalIterationTime / time.Duration(iterations)
 
 	// Create final bloom filter for benchmarking
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 	finalItems := make([][]byte, n+nonExistentCount)
 
 	// Add both inserted and non-existent items for mixed testing

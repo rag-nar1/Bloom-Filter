@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	filter "github.com/rag-nar1/Filters/filter"
 	filterBloom "github.com/rag-nar1/Filters/filter/bloom"
 )
 
@@ -24,7 +23,7 @@ func TestNewBloomFilter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bf := filterBloom.NewBloomFilter(test.N, test.fpRate, filter.DoubleHash)
+			bf := filterBloom.NewBloomFilter(test.N, test.fpRate)
 
 			// checking any intilization problems
 			if bf.M <= 0 {
@@ -36,10 +35,6 @@ func TestNewBloomFilter(t *testing.T) {
 			if len(bf.Bits) <= 0 {
 				t.Errorf("expected bit array size >0, got %d", len(bf.Bits))
 			}
-
-			if bf.Hasher == nil {
-				t.Errorf("expected hash function, got nil")
-			}
 		})
 	}
 }
@@ -47,7 +42,7 @@ func TestNewBloomFilter(t *testing.T) {
 func TestHash(t *testing.T) {
 	n := 1000
 	fpRate := 0.01
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 	testData := [][]byte{
 		[]byte("RAGNAR"),
 		[]byte("New value 1"),
@@ -59,10 +54,10 @@ func TestHash(t *testing.T) {
 		h1 := bf.Hash(data)
 		h2 := bf.Hash(data)
 
-		if len(h1) != bf.K {
+		if len(h1) != int(bf.K) {
 			t.Errorf("expected length %d, got %d", bf.K, len(h1))
 		}
-		if len(h2) != bf.K {
+		if len(h2) != int(bf.K) {
 			t.Errorf("expected length %d, got %d", bf.K, len(h2))
 		}
 
@@ -77,7 +72,7 @@ func TestHash(t *testing.T) {
 func TestInsert(t *testing.T) {
 	n := 1000
 	fpRate := 0.01
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 
 	testData := [][]byte{
 		[]byte("RAGNAR"),
@@ -94,7 +89,7 @@ func TestInsert(t *testing.T) {
 	// check that the bits with index contained in bf.hash(data) is set to true
 	for _, data := range testData {
 		h := bf.Hash(data)
-		if len(h) != bf.K {
+		if len(h) != int(bf.K) {
 			t.Errorf("expected length %d, got %d", bf.K, len(h))
 		}
 
@@ -111,7 +106,7 @@ func TestInsert(t *testing.T) {
 func TestExist(t *testing.T) {
 	n := 1000
 	fpRate := 0.01
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 	
 	testData := [][]byte{
 		[]byte("RAGNAR"),
@@ -139,7 +134,7 @@ func TestExist(t *testing.T) {
 func TestNoFalseNegatives(t *testing.T) {
 	n := 100
 	fpRate := 0.05
-	bf := filterBloom.NewBloomFilter(uint64(n), fpRate, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
 	
 	testItems := make([][]byte, 100)
 	for i := range testItems {
@@ -159,7 +154,7 @@ func TestNoFalseNegatives(t *testing.T) {
 func TestFalsePositiveRate(t *testing.T) {
 	n := 1000   
 	e := 0.01 // at most
-	bf := filterBloom.NewBloomFilter(uint64(n), e, filter.DoubleHash)
+	bf := filterBloom.NewBloomFilter(uint64(n), e)
 	
 	// Insert n items
 	insertedItems := make(map[string]bool)
@@ -188,4 +183,52 @@ func TestFalsePositiveRate(t *testing.T) {
 	}
 	
 	t.Logf("False positive rate: %f", falsePositiveRate)
+}
+
+func TestSerializeDeserialize(t *testing.T) {
+	n := 10000000
+	fpRate := 0.01
+	bf := filterBloom.NewBloomFilter(uint64(n), fpRate)
+	beforeFPR := 0
+	for i := 0; i < n; i++ {
+		bf.Insert([]byte(fmt.Sprintf("item_%d", i)))
+	}
+	for i := 0; i < n; i++ {
+		item := fmt.Sprintf("item_%d_%d", i, i)
+		if !bf.Exist([]byte(item)) {
+			beforeFPR++
+		}
+	}
+	serialized := bf.Serialize()
+	deserialized := filterBloom.Deserialize(serialized)
+
+	if bf.M != deserialized.M {
+		t.Errorf("expected m %d, got %d", bf.M, deserialized.M)
+	}	
+	if bf.K != deserialized.K {
+		t.Errorf("expected k %d, got %d", bf.K, deserialized.K)
+	}
+	if bf.Seed != deserialized.Seed {
+		t.Errorf("expected seed %d, got %d", bf.Seed, deserialized.Seed)
+	}
+
+	for i := range bf.Bits {
+		if bf.Bits[i] != deserialized.Bits[i] {
+			t.Errorf("expected bit %d, got %d", bf.Bits[i], deserialized.Bits[i])
+		}
+	}
+
+	afterFPR := 0
+	for i := 0; i < n; i++ {
+		item := fmt.Sprintf("item_%d_%d", i, i)
+		if !deserialized.Exist([]byte(item)) {
+			afterFPR++
+		}
+	}
+
+	if beforeFPR != afterFPR {
+		t.Errorf("expected false positive rate %d, got %d", beforeFPR, afterFPR)
+	}
+
+	t.Logf("Serialize and deserialize test passed")
 }

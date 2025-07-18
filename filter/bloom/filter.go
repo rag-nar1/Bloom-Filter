@@ -1,34 +1,37 @@
 package bloom
 
 import (
+	"bytes"
 	"math"
+	"math/rand"
 
+	"github.com/dgryski/go-metro"
 	"github.com/rag-nar1/Filters/filter"
 )
 
 type BloomFilter struct {
-	M uint64 // size of bit-array
-	K int    // number of hash-functions
+	M    uint64 // size of bit-array
+	K    uint32    // number of hash-functions
+	Seed uint64
 
-	Bits   []uint64 // the filter actual storage
-	Hasher filter.Hash
+	Bits []uint64 // the filter actual storage
 }
 
-func NewBloomFilter(n uint64, fpRate float64, hasher filter.Hash) *BloomFilter {
+func NewBloomFilter(n uint64, fpRate float64) *BloomFilter {
 	// m = ceil((n * log(p)) / log(1 / pow(2, log(2))));
 	// k = round((m / n) * log(2));
 	m := uint64(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
-	k := int(math.Round(float64(m) / float64(n) * math.Log(2)))
+	k := uint32(math.Round(float64(m) / float64(n) * math.Log(2)))
 	return &BloomFilter{
-		M:      m,
-		K:      k,
-		Bits:   make([]uint64, m/64+1),
-		Hasher: hasher,
+		M:    m,
+		K:    k,
+		Bits: make([]uint64, m/64+1),
+		Seed: rand.Uint64(),
 	}
 }
 
 func (bf *BloomFilter) Hash(data []byte) []int {
-	return bf.Hasher(data, bf.M, bf.K)
+	return filter.DoubleHash(metro.Hash64(data, bf.Seed), bf.M, bf.K)
 }
 
 func (bf *BloomFilter) Insert(data []byte) {
@@ -49,4 +52,35 @@ func (bf *BloomFilter) Exist(data []byte) bool {
 		}
 	}
 	return true
+}
+
+// Serialize the filter to a byte slice in the following format:
+// header|bits
+// header format: uint64(M)|uint32(K)|uint64(seed) => 8 + 4 + 8 = 20 bytes
+func (bf *BloomFilter) Serialize() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0, 12+len(bf.Bits)*8))
+	filter.SerializeUint(buf, uint64(bf.M), 8)
+	filter.SerializeUint(buf, uint64(bf.K), 4)
+	filter.SerializeUint(buf, bf.Seed, 8)
+	for _, bit := range bf.Bits {
+		filter.SerializeUint(buf, bit, 8)
+	}
+	return buf.Bytes()
+}
+
+func Deserialize(data []byte) *BloomFilter {
+	buf := bytes.NewBuffer(data)
+	m := filter.DeserializeUint[uint64](buf, 8)
+	k := filter.DeserializeUint[uint32](buf, 4)
+	seed := filter.DeserializeUint[uint64](buf, 8)
+	bits := make([]uint64, m/64+1)
+	for i := range bits {
+		bits[i] = filter.DeserializeUint[uint64](buf, 8)
+	}
+	return &BloomFilter{
+		M:    m,
+		K:    k,
+		Seed: seed,
+		Bits: bits,
+	}
 }
