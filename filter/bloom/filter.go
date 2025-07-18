@@ -8,7 +8,7 @@ import (
 
 type BloomFilter struct {
 	M uint64 // size of bit-array
-	K int // number of hash-functions
+	K int    // number of hash-functions
 
 	Bits   []uint64 // the filter actual storage
 	Hasher filter.Hash
@@ -44,7 +44,7 @@ func (bf *BloomFilter) Exist(data []byte) bool {
 	for _, idx := range hashedIdx {
 		pos := idx / 64
 		rem := idx % 64
-		if (bf.Bits[pos] >> rem) & 1  == 0 {
+		if (bf.Bits[pos]>>rem)&1 == 0 {
 			return false
 		}
 	}

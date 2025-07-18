@@ -207,7 +207,6 @@ func BenchmarkAccuracy(b *testing.B) {
 				value interface{}
 				unit  string
 			}{
-				{"Stash Items", len(cf.Stash), "items"},
 				{"Load Factor", loadFactor * 100, "%"},
 			},
 		},
@@ -248,7 +247,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 	actualMemoryBytes := m2.Alloc - m1.Alloc
 
 	// Theoretical memory: M buckets * 4 entries per bucket * 1 byte per fingerprint + stash
-	theoreticalMemoryBytes := float64(cf.M*filterCuckoo.BucketSize*1) + float64(len(cf.Stash))
+	theoreticalMemoryBytes := float64(cf.M*filterCuckoo.BucketSize*1)
 	memoryEfficiency := (theoreticalMemoryBytes / float64(actualMemoryBytes)) * 100
 	bytesPerItem := float64(actualMemoryBytes) / float64(insertedCount)
 
@@ -294,7 +293,6 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 			}{
 				{"Buckets Count", int(cf.M), "buckets"},
 				{"Total Slots", int(cf.M * filterCuckoo.BucketSize), "slots"},
-				{"Stash Items", len(cf.Stash), "items"},
 				{"Load Factor", loadFactor * 100, "%"},
 			},
 		},
@@ -385,7 +383,6 @@ func BenchmarkCapacityLimits(b *testing.B) {
 					}{
 						{"Load Factor", test.loadFactor * 100, "%"},
 						{"Buckets Count", int(cf.M), "buckets"},
-						{"Stash Items", len(cf.Stash), "items"},
 					},
 				},
 			})
@@ -408,20 +405,11 @@ func BenchmarkStashBehavior(b *testing.B) {
 	// Fill the filter beyond capacity to force stash usage
 	insertCount := int(n * 2) // Try to insert twice the capacity
 	insertedItems := make([][]byte, 0, insertCount)
-	stashUsageHistory := make([]int, 0, insertCount)
 
 	for i := 0; i < insertCount; i++ {
 		item := []byte(fmt.Sprintf("stash_test_item_%d", i))
 		if cf.Insert(item) {
 			insertedItems = append(insertedItems, item)
-		}
-		stashUsageHistory = append(stashUsageHistory, len(cf.Stash))
-	}
-
-	maxStashSize := 0
-	for _, size := range stashUsageHistory {
-		if size > maxStashSize {
-			maxStashSize = size
 		}
 	}
 
@@ -453,9 +441,7 @@ func BenchmarkStashBehavior(b *testing.B) {
 				value interface{}
 				unit  string
 			}{
-				{"Final Stash Size", len(cf.Stash), "items"},
-				{"Max Stash Size", maxStashSize, "items"},
-				{"Stash Usage Rate", float64(len(cf.Stash)) / float64(maxStashSize) * 100, "%"},
+				{"Stash Usage Rate", 0, "%"},
 			},
 		},
 		{
@@ -751,7 +737,6 @@ func BenchmarkComparativeSizes(b *testing.B) {
 						unit  string
 					}{
 						{"Capacity Utilization", float64(successfulInserts) / float64(size.n) * 100, "%"},
-						{"Stash Items", len(cf.Stash), "items"},
 						{"Load Factor", 90.0, "%"}, // Fixed 0.9 from the code
 					},
 				},

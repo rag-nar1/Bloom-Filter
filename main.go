@@ -39,7 +39,7 @@ func main() {
 	fn, fp := 0, 0
 	for s, _ := range randData {
 		if !bf.Exist([]byte(s)) {
-			fn++	
+			fn++
 		}
 	}
 

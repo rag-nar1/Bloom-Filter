@@ -1,6 +1,7 @@
 package cuckoo_test
 
 import (
+	"bytes"
 	"fmt"
 	"runtime"
 	"testing"
@@ -486,7 +487,6 @@ func TestFalseNegatives(t *testing.T) { // i think m need to be changed to be bi
 	} else {
 		t.Logf("No false negatives found - all %d inserted items were successfully looked up", len(inserted))
 	}
-	t.Logf("Stash size: %d", len(cf.Stash))
 }
 
 func TestFalseNegativesBiggerM(t *testing.T) {
@@ -522,7 +522,6 @@ func TestFalseNegativesBiggerM(t *testing.T) {
 	} else {
 		t.Logf("No false negatives found - all %d inserted items were successfully looked up", len(inserted))
 	}
-	t.Logf("Stash size: %d", len(cf.Stash))
 }
 
 func BenchmarkMemoryConsumption(b *testing.B) {
@@ -539,4 +538,34 @@ func BenchmarkMemoryConsumption(b *testing.B) {
 	fmt.Printf("Memory usage: %f MB\n", float64(m2.Alloc-m1.Alloc)/1024/1024)
 	theoreticalMemory := float64(cf.M) * 4.0 / 1024.0 / 1024.0
 	fmt.Printf("Theoretical memory usage: %f MB\n", theoreticalMemory)
+}
+
+func TestSerializeDeserialize(t *testing.T) {
+	N := uint64(100000000)
+	cf := filterCuckoo.NewCuckooFilter(N, 0.95)
+	for i := uint64(0); i < N; i++ {
+		cf.Insert([]byte(fmt.Sprintf("test_%d", i)))
+	}
+	serialized := cf.Serialize()
+	deserialized := filterCuckoo.Deserialize(serialized)
+
+	if cf.M != deserialized.M {
+		t.Errorf("M mismatch: %d != %d", cf.M, deserialized.M)
+	}
+
+	if cf.FpSeed != deserialized.FpSeed {
+		t.Errorf("FpSeed mismatch: %d != %d", cf.FpSeed, deserialized.FpSeed)
+	}
+
+	if cf.Seed != deserialized.Seed {
+		t.Errorf("Seed mismatch: %d != %d", cf.Seed, deserialized.Seed)
+	}
+
+	for i := range cf.Buckets {
+		if !bytes.Equal(cf.Buckets[i][:], deserialized.Buckets[i][:]) {
+			t.Errorf("Bucket %d mismatch", i)
+		}
+	}
+
+	t.Logf("Serialize and deserialize test passed")
 }
