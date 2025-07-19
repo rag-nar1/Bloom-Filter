@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	N                = 5000000
+	N                = 1000000
 	BloomFPRate      = 0.01
 	CuckooLoadFactor = 0.95
 )

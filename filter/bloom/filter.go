@@ -10,8 +10,8 @@ import (
 )
 
 type BloomFilter struct {
-	M    uint64 // size of bit-array
-	K    uint32    // number of hash-functions
+	M    uint32 // size of bit-array
+	K    uint32 // number of hash-functions
 	Seed uint64
 
 	Bits []uint64 // the filter actual storage
@@ -20,8 +20,9 @@ type BloomFilter struct {
 func NewBloomFilter(n uint64, fpRate float64) *BloomFilter {
 	// m = ceil((n * log(p)) / log(1 / pow(2, log(2))));
 	// k = round((m / n) * log(2));
-	m := uint64(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
+	m := uint32(math.Ceil(float64(n) * math.Log(fpRate) / math.Log(1/math.Pow(2, math.Log(2)))))
 	k := uint32(math.Round(float64(m) / float64(n) * math.Log(2)))
+	m = filter.NextPowerOfTwo(m)
 	return &BloomFilter{
 		M:    m,
 		K:    k,
@@ -35,19 +36,24 @@ func (bf *BloomFilter) Hash(data []byte) []int {
 }
 
 func (bf *BloomFilter) Insert(data []byte) {
-	hashedIdx := bf.Hash(data)
-	for _, idx := range hashedIdx {
+	hash := metro.Hash64(data, bf.Seed)
+	h1 := uint32(hash)
+	h2 := uint32(hash >> 32)
+	for i := uint32(0); i < bf.K; i++ {
+		idx := (h1 + i*h2) & (bf.M - 1)
 		pos := idx / 64
-		bf.Bits[pos] |= uint64(1) << (idx % 64)
+		bf.Bits[pos] |= uint64(1) << (idx & 63)
 	}
 }
 
 func (bf *BloomFilter) Exist(data []byte) bool {
-	hashedIdx := bf.Hash(data)
-	for _, idx := range hashedIdx {
+	hash := metro.Hash64(data, bf.Seed)
+	h1 := uint32(hash)
+	h2 := uint32(hash >> 32)
+	for i := uint32(0); i < bf.K; i++ {
+		idx := (h1 + i*h2) & (bf.M - 1)
 		pos := idx / 64
-		rem := idx % 64
-		if (bf.Bits[pos]>>rem)&1 == 0 {
+		if (bf.Bits[pos]>>(idx&63))&1 == 0 {
 			return false
 		}
 	}
@@ -56,10 +62,10 @@ func (bf *BloomFilter) Exist(data []byte) bool {
 
 // Serialize the filter to a byte slice in the following format:
 // header|bits
-// header format: uint64(M)|uint32(K)|uint64(seed) => 8 + 4 + 8 = 20 bytes
+// header format: uint32(M)|uint32(K)|uint64(seed) => 4 + 4 + 8 = 16 bytes
 func (bf *BloomFilter) Serialize() []byte {
-	buf := bytes.NewBuffer(make([]byte, 0, 12+len(bf.Bits)*8))
-	filter.SerializeUint(buf, uint64(bf.M), 8)
+	buf := bytes.NewBuffer(make([]byte, 0, 16+len(bf.Bits)*8))
+	filter.SerializeUint(buf, uint64(bf.M), 4)
 	filter.SerializeUint(buf, uint64(bf.K), 4)
 	filter.SerializeUint(buf, bf.Seed, 8)
 	for _, bit := range bf.Bits {
@@ -70,7 +76,7 @@ func (bf *BloomFilter) Serialize() []byte {
 
 func Deserialize(data []byte) *BloomFilter {
 	buf := bytes.NewBuffer(data)
-	m := filter.DeserializeUint[uint64](buf, 8)
+	m := filter.DeserializeUint[uint32](buf, 4)
 	k := filter.DeserializeUint[uint32](buf, 4)
 	seed := filter.DeserializeUint[uint64](buf, 8)
 	bits := make([]uint64, m/64+1)

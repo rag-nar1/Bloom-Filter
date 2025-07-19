@@ -125,8 +125,8 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 // BenchmarkBigDataOperations tests performance with large data sets over multiple iterations and reports average metrics
 func BenchmarkBigDataOperations(b *testing.B) {
 	// Configuration
-	n := 500000
-	fpRate := 0.01
+	n := 1000000
+	fpRate := 0.003142
 	bigDataSize := 1024 // 1KB per item
 	nonExistentCount := 15000
 	iterations := 5 // Number of iterations to average
@@ -250,7 +250,7 @@ func BenchmarkBigDataOperations(b *testing.B) {
 	b.ReportMetric(float64(n), "items_inserted_per_iteration")
 	b.ReportMetric(float64(nonExistentCount), "items_tested_non_existent_per_iteration")
 	b.ReportMetric(float64(bigDataSize), "avg_data_size_bytes")
-	b.ReportMetric(float64(bf.M)/8/1024, "filter_size_KB")
+	b.ReportMetric(float64(bf.M)/8/1024/1024, "filter_size_MB")
 	b.ReportMetric(float64(avgIterationTime.Milliseconds()), "avg_iteration_time_ms")
 	b.ReportMetric(float64(totalTime.Milliseconds()), "total_time_ms")
 }

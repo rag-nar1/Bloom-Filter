@@ -25,19 +25,8 @@ type CuckooFilter struct {
 	FpSeed  uint64
 }
 
-func nextPowerOfTwo(n uint32) uint32 {
-	n--
-	n |= n >> 1
-	n |= n >> 2
-	n |= n >> 4
-	n |= n >> 8
-	n |= n >> 16
-	n++
-	return n
-}
-
 func NewCuckooFilter(n uint64, loadFactor float64) *CuckooFilter {
-	m := nextPowerOfTwo(uint32(math.Ceil(float64(n) / float64(BucketSize) / loadFactor)))
+	m := filter.NextPowerOfTwo(uint32(math.Ceil(float64(n) / float64(BucketSize) / loadFactor)))
 	m = max(m, 1)
 	return &CuckooFilter{
 		M:       m,
