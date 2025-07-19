@@ -273,11 +273,12 @@ func TestBenchmarkMetrics(t *testing.T) {
 	fmt.Println("fpRate:", fpRate)
 	fmt.Println("Size in MB:", float64(bf.M)/8/1024/1024)
 	fmt.Println("--------------------------------")
-	fmt.Printf("FPR (%%)\t\tFP Count\tInsert (ns/op)\tCheck (ns/op)\n")
-	fmt.Printf("%.4f \t\t %d \t\t %.2f \t\t %.2f \n\n",
+	fmt.Printf("FPR (%%)\t\tFP Count\tInsert (ns/op)\tCheck (ns/op)\t(bits/item)\n")
+	fmt.Printf("%.4f \t\t %d \t\t %.2f \t\t %.2f \t\t %.2f \n\n",
 		fprPercentage,
 		fpCount,
 		insertNsOp,
 		checkNsOp,
+		float64(bf.M) / float64(N),
 	)
 }

@@ -5,7 +5,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/dgryski/go-metro"
+	"github.com/zeebo/xxh3"
 	"github.com/rag-nar1/Filters/filter"
 )
 
@@ -26,33 +26,33 @@ func NewBloomFilter(n uint64, fpRate float64) *BloomFilter {
 	return &BloomFilter{
 		M:    m,
 		K:    k,
-		Bits: make([]uint64, m/64+1),
+		Bits: make([]uint64, m>>6+1),
 		Seed: rand.Uint64(),
 	}
 }
 
 func (bf *BloomFilter) Hash(data []byte) []int {
-	return filter.DoubleHash(metro.Hash64(data, bf.Seed), bf.M, bf.K)
+	return filter.DoubleHash(xxh3.Hash(data), bf.M, bf.K)
 }
 
 func (bf *BloomFilter) Insert(data []byte) {
-	hash := metro.Hash64(data, bf.Seed)
+	hash := xxh3.Hash(data)
 	h1 := uint32(hash)
 	h2 := uint32(hash >> 32)
 	for i := uint32(0); i < bf.K; i++ {
 		idx := (h1 + i*h2) & (bf.M - 1)
-		pos := idx / 64
+		pos := idx >> 6
 		bf.Bits[pos] |= uint64(1) << (idx & 63)
 	}
 }
 
 func (bf *BloomFilter) Exist(data []byte) bool {
-	hash := metro.Hash64(data, bf.Seed)
+	hash := xxh3.Hash(data)
 	h1 := uint32(hash)
 	h2 := uint32(hash >> 32)
 	for i := uint32(0); i < bf.K; i++ {
 		idx := (h1 + i*h2) & (bf.M - 1)
-		pos := idx / 64
+		pos := idx >> 6
 		if (bf.Bits[pos]>>(idx&63))&1 == 0 {
 			return false
 		}
