@@ -6,6 +6,7 @@ import (
 	"time"
 
 	blockedbloom "github.com/rag-nar1/Filters/filter/blocked-bloom"
+	
 )
 
 func TestBenchmarkMetrics(t *testing.T) {
@@ -25,13 +26,15 @@ func TestBenchmarkMetrics(t *testing.T) {
 	fmt.Println("Iterations:", iterations)
 	fmt.Println("--------------------------------")
 
+	var bf *blockedbloom.BlockedBloomFilter
 	for i := 0; i < iterations; i++ {
-		bf := blockedbloom.NewBlockedBloomFilter(uint64(N), fpRate)
+		bf = blockedbloom.NewBlockedBloomFilter(uint64(N), fpRate)
 
 		itemsToInsert := make([][]byte, N)
 		for j := 0; j < N; j++ {
 			itemsToInsert[j] = []byte(fmt.Sprintf("inserted_%d_%d", i, j))
 		}
+
 
 		startInsert := time.Now()
 		for _, item := range itemsToInsert {
@@ -53,13 +56,19 @@ func TestBenchmarkMetrics(t *testing.T) {
 		}
 		totalCheckTime += time.Since(startCheck)
 		totalFpCount += fpCount
+
+		// check for false negatives
+		for _, item := range itemsToInsert {
+			if !bf.Exist(item) {
+				t.Errorf("Item %s should exist in the filter", item)
+			}
+		}
 	}
 
 	avgFpCount := float64(totalFpCount) / float64(iterations)
 	avgFprPercentage := (avgFpCount / float64(N)) * 100
 	avgInsertNsOp := (float64(totalInsertTime.Nanoseconds()) / float64(N)) / float64(iterations)
 	avgCheckNsOp := (float64(totalCheckTime.Nanoseconds()) / float64(N)) / float64(iterations)
-
 	fmt.Printf("Avg FPR (%%)\tAvg FP Count\tAvg Insert (ns/op)\tAvg Check (ns/op)\n")
 	fmt.Printf("%.4f \t\t %.2f \t\t %.2f \t\t\t %.2f \n\n",
 		avgFprPercentage,
