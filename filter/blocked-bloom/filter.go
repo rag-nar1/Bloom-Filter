@@ -25,6 +25,7 @@ type BlockedBloomFilter struct {
 func NewBlockedBloomFilter(n uint64, fpRate float64) *BlockedBloomFilter {
 	m := uint32(math.Ceil(-float64(n) * math.Log(fpRate) / (math.Log(2) * math.Log(2))))
 	m = filter.NextPowerOfTwo(m)
+    m = max(m, BlockSize)
 	blockCount := uint64(m / BlockSize)
 	bf := &BlockedBloomFilter{
 		BloomFilters: make([]uint64, m>>WordSize),
